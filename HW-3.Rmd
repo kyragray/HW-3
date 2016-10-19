@@ -1,6 +1,6 @@
 ---
 title: "MATH 216 Homework 3"
-author: "WRITE YOUR NAME HERE"
+author: "Kyra Gray"
 output:
   html_document:
     toc: true
@@ -25,7 +25,7 @@ Please indicate
 
 * Who you collaborated with:
 * Roughly how much time you spent on this HW so far:
-* The URL of the RPubs published URL [here](https://www.nhl.com/).
+* The URL of the RPubs published URL [here](http://rpubs.com/kyragray/219941).
 * What gave you the most trouble:
 * Any comments you have:
 
