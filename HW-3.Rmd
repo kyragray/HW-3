@@ -15,6 +15,8 @@ library(dplyr)
 library(readr)
 library(lubridate)
 library(Quandl)
+library(knitr)
+library(forcats)
 ```
 
 
@@ -23,8 +25,8 @@ library(Quandl)
 
 Please indicate
 
-* Who you collaborated with:
-* Roughly how much time you spent on this HW so far:
+* Who you collaborated with: Amanda Hotvedt, Katherine Hobbs
+* Roughly how much time you spent on this HW so far: 6 hours 
 * The URL of the RPubs published URL [here](http://rpubs.com/kyragray/219941).
 * What gave you the most trouble:
 * Any comments you have:
@@ -63,6 +65,39 @@ profiles <- read_csv(file="profiles.csv") %>%
 ```
 
 
+```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+profiles <- profiles %>% 
+mutate(income_level = 
+  ifelse(income %in% -2:0, "No Response",
+  ifelse(income %in% 0:20000, "Low Income",
+  ifelse(income %in% 20001:70000, "Middle Income",
+  ifelse(income %in% 70000:1000000, "High Income", " "))))) %>% 
+  mutate(job_new = ifelse(is.na(job), "NA", job)) %>% 
+  mutate(job_new = fct_recode(job_new, 
+                            "not currently working" = "unemployed", 
+                            "not currently working" = "student", 
+                            "not currently working" = "retired", 
+                            "no response" = "rather not say", 
+                            "no response" = "NA",   
+                            "entertainment" = "entertainment / media", 
+                            "entertainment" = "artistic / musical / writer", 
+                            "miscellaneous" = "military",
+                            "miscellaneous" = "political / government", 
+                            "miscellaneous" = "clerical / administrative", 
+                            "miscellaneous" = "law / legal services", 
+                            "miscellaneous" = "construction / craftsmanship", 
+                            "miscellaneous" = "transportation", 
+                            "miscellaneous" = "hospitality / travel")) %>% 
+mutate(age_level = 
+  ifelse(age %in% 18:19, "Under 20",
+  ifelse(age %in% 20:29, "Twenties",
+  ifelse(age %in% 30:39, "Thirties",
+  ifelse(age %in% 40:49, "Forties", 
+  ifelse(age %in% 50:59, "Fifties", 
+  ifelse(age %in% 60:111, "60 and Over", " ")))))))
+
+```
+
 
 #### a)
 
@@ -80,8 +115,10 @@ to rate how well we performed.
 * Be sure to incorporate all the insight your garnered in your EDA in HW-2.
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
-set.seed(76)
-
+set.seed(9)
+training <- sample_n(profiles, 2997)
+test <- profiles %>% 
+  filter(!(id %in% training$id))
 ```
 
 
@@ -93,7 +130,21 @@ regression model to the `training` data. Assign this model to an R object called
 `predict_sex_model`, then rate how well the model performs on the `training` data.
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+predict_sex_model <- glm(is_female ~income_level + job_new + age_level, data = training, family = "binomial")
 
+prediction_training <- predict(predict_sex_model, newdata=training, type="response")
+
+training <- training %>% 
+  mutate(phat=predict(predict_sex_model, newdata=training, type="response")) %>% 
+  select(income_level, job_new, age_level, phat, is_female) %>% 
+  mutate(predicted_correct=
+        ifelse((phat>=.4023 & is_female==1) | (phat<.4023 & is_female==0), 1, 0)) 
+
+training_correct <- training %>% 
+  group_by(predicted_correct) %>% 
+  summarise(n=n()) %>% 
+  mutate(prop = n/sum(n)) 
+knitr::kable(training_correct)
 ```
 
 
@@ -108,6 +159,20 @@ type="response")` does? The help file is located in `?predict.glm`
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
 
+prediction_test <- predict(predict_sex_model, newdata=test, type="response")
+
+test <- test %>% 
+  mutate(phat=predict(predict_sex_model, newdata=test, type="response")) %>% 
+  select(income_level, job_new, age_level, phat, is_female) %>% 
+  mutate(predicted_correct=
+        ifelse((phat>=.4023 & is_female==1) | (phat<.4023 & is_female==0), 1, 0))  
+
+test_correct <- test %>% 
+  group_by(predicted_correct) %>% 
+  summarise(n=n()) %>% 
+  mutate(prop = n/sum(n)) 
+knitr::kable(test_correct)  
+
 ```
 
 
@@ -117,8 +182,7 @@ type="response")` does? The help file is located in `?predict.glm`
 Did the model perform better on the `training` data or the `test` data? Why
 do you think that is?
 
-
-
+  Considering that the model was built on the training data, I hypothesized that the model would perform better on the training data. The results support the hypothesis but not as strongly as I would have guessed, the model using the training data predicts sex correctly 60% of the time and the model using the test data predicts sex correctly 58% of the time. 
 
 
 
@@ -135,7 +199,33 @@ Let the reference currency be US dollars. Analyze these results and provide
 insight to a foreign currency exchanger.
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+bitcoin <- Quandl("BAVERAGE/USD", api_key="HT-hvAhCykRB7qMy-oHD") %>% 
+  tbl_df()
+gold <- Quandl("BUNDESBANK/BBK01_WT5511", api_key="HT-hvAhCykRB7qMy-oHD") %>% 
+  tbl_df()
 
+bitcoin <- bitcoin %>% 
+  rename(Avg = `24h Average`, Total_Volume=`Total Volume`) 
+  
+bitcoin$Avg_next_day <- lead(bitcoin$Avg, 1)
+
+bitcoin <- bitcoin %>% 
+  mutate(daily_change=(Avg_next_day-Avg))
+
+gold_recent <- gold %>% 
+  filter(Date %within% interval(ymd("2010-01-01"), ymd("2016-12-31")))
+
+gold_recent$Value_next_day <- lead(gold_recent$Value, 1)
+
+gold_recent <- gold_recent %>% 
+  mutate(daily_change=(Value_next_day-Value))
+
+
+ p <- ggplot() +
+   geom_line(data=bitcoin, aes(x=Date, y=daily_change, color="Bitcoin")) +
+   geom_line(data=gold_recent, aes(x=Date, y=daily_change, color="Gold")) +
+   labs(title="Bitcoin Volatility compared to Gold", x="Date", y="Daily Average")
+ p
 ```
 
 
@@ -177,7 +267,25 @@ the "graveyard shift" during the academic year? Define
 * the academic year as September through May (inclusive)
 
 ```{r, echo=TRUE, message=TRUE, warning=TRUE, fig.width=8, fig.height=4.5}
+jukebox <- jukebox %>% 
+  mutate(Date = parse_date_time(date_time, "a b d HMS Y")) %>% 
+  mutate(Month=month(Date)) %>% 
+  mutate(Hour=hour(Date))
 
+graveyard <- jukebox %>% 
+  filter(Month<=5 | Month>=9) %>% 
+  filter(Hour>=24 | Hour<=8)
+
+graveyard_artist <- graveyard %>% 
+  group_by(artist) %>% 
+  tally() %>% 
+  ungroup(artist) %>% 
+  arrange(desc(n))
+
+graveyard_artist_top10 <- graveyard_artist %>%
+  filter(n>1275)
+  
+knitr::kable(graveyard_artist_top10)
 ```
 
 
