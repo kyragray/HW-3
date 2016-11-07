@@ -26,7 +26,7 @@ library(forcats)
 Please indicate
 
 * Who you collaborated with: Amanda Hotvedt, Katherine Hobbs
-* Roughly how much time you spent on this HW so far: 6 hours 
+* Roughly how much time you spent on this HW so far: 7 hours 
 * The URL of the RPubs published URL [here](http://rpubs.com/kyragray/219941).
 * What gave you the most trouble:
 * Any comments you have:
@@ -207,24 +207,24 @@ gold <- Quandl("BUNDESBANK/BBK01_WT5511", api_key="HT-hvAhCykRB7qMy-oHD") %>%
 bitcoin <- bitcoin %>% 
   rename(Avg = `24h Average`, Total_Volume=`Total Volume`) 
   
-bitcoin$Avg_next_day <- lead(bitcoin$Avg, 1)
+bitcoin$Avg_previous_day <- lead(bitcoin$Avg, 1)
 
 bitcoin <- bitcoin %>% 
-  mutate(daily_change=(Avg_next_day-Avg))
+  mutate(daily_relative_change=((Avg-Avg_previous_day)/Avg_previous_day))
 
 gold_recent <- gold %>% 
   filter(Date %within% interval(ymd("2010-01-01"), ymd("2016-12-31")))
 
-gold_recent$Value_next_day <- lead(gold_recent$Value, 1)
+gold_recent$Value_previous_day <- lead(gold_recent$Value, 1)
 
 gold_recent <- gold_recent %>% 
-  mutate(daily_change=(Value_next_day-Value))
+  mutate(daily_relative_change=((Value-Value_previous_day)/Value_previous_day))
 
 
  p <- ggplot() +
-   geom_line(data=bitcoin, aes(x=Date, y=daily_change, color="Bitcoin")) +
-   geom_line(data=gold_recent, aes(x=Date, y=daily_change, color="Gold")) +
-   labs(title="Bitcoin Volatility compared to Gold", x="Date", y="Daily Average")
+   geom_line(data=bitcoin, aes(x=Date, y=daily_relative_change, color="Bitcoin")) +
+   geom_line(data=gold_recent, aes(x=Date, y=daily_relative_change, color="Gold")) +
+   labs(title="Relative Daily Volitilty, Bitcoin Compared to Gold", x="Date", y="Daily Relative Volatility")
  p
 ```
 
